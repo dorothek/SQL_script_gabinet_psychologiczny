@@ -1,0 +1,113 @@
+#tworzenie bazy danych, tabel i klucze główne
+CREATE DATABASE gabinet_psychologiczny;
+USE gabinet_psychologiczny;
+CREATE TABLE prowadzacy (sesja_ID bigint(20) NOT NULL, psycholog_ID bigint(20) NOT NULL, PRIMARY KEY (sesja_ID, psycholog_ID));
+CREATE TABLE uczestnicy (pacjent_ID bigint(20) NOT NULL, sesja_ID bigint(20) NOT NULL, naleznosc double NOT NULL, czy_oplacona int(10) NOT NULL, PRIMARY KEY (pacjent_ID, sesja_ID));
+CREATE TABLE pacjenci (pacjent_ID bigint(20) NOT NULL, imie varchar(20) NOT NULL, nazwisko varchar(30) NOT NULL, psycholog_ID bigint(20), pesel varchar(11) NOT NULL, adres varchar(64), historia_leczenia text DEFAULT NULL, zawod varchar(50) DEFAULT NULL, wyksztalcenie text DEFAULT NULL, przebyte_operacje text DEFAULT NULL, wypadki text DEFAULT NULL, przyjmowane_leki text DEFAULT NULL, choroby_przewlekle text DEFAULT NULL, PRIMARY KEY (pacjent_ID));
+CREATE TABLE sesje (sesja_ID bigint(20) NOT NULL, nr_gabinet bigint(20) NOT NULL, notatka text NOT NULL, typ_sesji varchar(30) NOT NULL, data date NOT NULL, godzina time NOT NULL, czas_trwania time DEFAULT NULL, PRIMARY KEY (sesja_ID));
+CREATE TABLE diagnoza (pacjent_ID bigint(20) NOT NULL, psycholog_ID bigint(20) NOT NULL, data date NOT NULL, DSM varchar(30) NOT NULL, ACL int(11) NOT NULL, MMPI text NOT NULL, NEOPIR int(11) NOT NULL, diagnoza_ID bigint(20) NOT NULL, PRIMARY KEY (diagnoza_ID));
+CREATE TABLE psychologowie (psycholog_ID bigint(20) NOT NULL, imie varchar(20) NOT NULL, nazwisko varchar(30) NOT NULL, wyksztalcenie text NOT NULL, nurt_terapeutyczny varchar(30) NOT NULL, kompetencje text NOT NULL, PRIMARY KEY (psycholog_ID));
+#klucze obce
+ALTER TABLE pacjenci ADD FOREIGN KEY (psycholog_ID) REFERENCES psychologowie(psycholog_ID);
+ALTER TABLE prowadzacy ADD FOREIGN KEY (psycholog_ID) REFERENCES psychologowie(psycholog_ID);
+ALTER TABLE diagnoza ADD FOREIGN KEY (psycholog_ID) REFERENCES psychologowie(psycholog_ID);
+ALTER TABLE diagnoza ADD FOREIGN KEY (pacjent_ID) REFERENCES pacjenci(pacjent_ID);
+ALTER TABLE uczestnicy ADD FOREIGN KEY (pacjent_ID) REFERENCES pacjenci(pacjent_ID);
+ALTER TABLE prowadzacy ADD FOREIGN KEY (sesja_ID) REFERENCES sesje(sesja_ID);
+ALTER TABLE uczestnicy ADD FOREIGN KEY (sesja_ID) REFERENCES sesje(sesja_ID);
+#indeksy
+CREATE INDEX idx_sesje_data ON sesje (data);
+CREATE INDEX idx_pacjenci_nazw ON pacjenci (nazwisko);
+CREATE INDEX idx_psychologowie_nazw ON psychologowie (nazwisko);
+#procedury
+DELIMITER $$
+CREATE PROCEDURE gabinet_psychologiczny.usuwanie_sesji(IN param date)
+BEGIN
+	DECLARE EXIT HANDLER FOR SQLEXCEPTION 
+		BEGIN
+     		ROLLBACK;
+   	 END;
+		START TRANSACTION;
+			DELETE FROM prowadzacy WHERE sesja_ID IN (SELECT sesja_ID FROM sesje WHERE data<param);
+			DELETE FROM uczestnicy WHERE sesja_ID IN (SELECT sesja_ID FROM sesje WHERE data<param);
+			DELETE FROM sesje WHERE data<param;
+		COMMIT;
+END $$
+DELIMITER ;
+
+DELIMITER $$
+CREATE PROCEDURE gabinet_psychologiczny.dodaj_test(IN x varchar(20))
+BEGIN
+	SET @STMT = CONCAT('alter table diagnoza add column ', x, ' varchar(100) not null');
+    PREPARE t FROM @STMT;
+    EXECUTE t;
+END $$
+DELIMITER ;
+#wstawienie rekordów
+INSERT INTO pacjenci(pacjent_ID, imie, nazwisko, psycholog_ID, pesel, adres, historia_leczenia, zawod, wyksztalcenie, przebyte_operacje, wypadki, przyjmowane_leki, choroby_przewlekle) VALUES (1, 'Henryk', 'Zimowicz', 1, '123456789', 'Lakowa 7 03-059 Tczew', 'leczony w szpitalu w Lublinie', 'elektryk', 'zawodowe', NULL, NULL, 'SSRI escitalopram', NULL), (2, 'Jagoda', 'Zimowicz', 5, '11111111', 'Lakowa 7 03-059 Tczew', 'pierwsze leczenie', 'nauczycielka', 'wyższe', NULL, NULL, NULL, NULL), (3, 'Jan', 'Maj', 2, '222222222', 'Grzybowska 8 03-444 Warszawa', NULL, NULL, NULL, NULL, NULL, NULL, NULL), (4, 'Weronika', 'Szczuchniak', 9, '333333333', 'Miłobędzka 59 09-000', NULL, NULL, 'student', NULL, 'wypadek samochodowy', NULL, NULL), (5, 'Jan', 'Kawałek', 3, '666666666', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL), (6, 'Kaja', 'Kowalska', 8, '666666555', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL), (7, 'Urszula', 'Lawenda', 7, '555666666', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL), (8, 'Karolina', 'Niedziałek', 6, '123987654', 'Jaktorowa 8 98-000 Koszalin', NULL, NULL, NULL, NULL, NULL, NULL, NULL), (9, 'Julia', 'Zimowicz', 4, '234567891', 'Lakowa 7 03-059 Tczew', NULL, NULL, NULL, NULL, NULL, NULL, NULL), (10, 'Bronisław', 'Zimowicz', 6, '345678901', 'Lakowa 7 03-059 Tczew', NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO pacjenci(pacjent_ID, imie,nazwisko, psycholog_ID, pesel, adres, historia_leczenia, zawod, wyksztalcenie, przebyte_operacje, wypadki, przyjmowane_leki, choroby_przewlekle) VALUES (11, 'Jowita', 'Uchnast', 5, '444444444', 'Krochmalna 7 00-098 Lublin', NULL, NULL, NULL, NULL, NULL, NULL, NULL), (12, 'Zbigniew', 'Uchnast', 7, '555555555', 'Krochmalna 7 00-876 Lublin', NULL, NULL, NULL, NULL, NULL, NULL, NULL), (13, 'Irmina', 'Brzeszcz', 8, '456456456', 'Karolkowa 8 00-987 Warszawa', NULL, NULL, NULL, NULL, NULL, NULL, 'cukrzyca'), (14, 'Karol', 'Malczewski', 9, '789789789', 'Brzegowa 70 06-987 Lublin', NULL, 'programista', 'wyższe', NULL, NULL, NULL, NULL), (15, 'Maja', 'Luty', 1, '333444888', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO psychologowie(psycholog_ID, imie, nazwisko, wyksztalcenie, nurt_terapeutyczny, kompetencje) VALUES (1, 'Agnieszka', 'Dorobek', 'KUL', 'CBT', 'diagnoza, psychoterapia'), (2, 'Ewa', 'Kalmar', 'UMCS', 'psychodynamiczny', 'diagnoza, psychoterapia'), (3, 'Tadeusz', 'Drozd', 'UW', 'CBT', 'poradnictwo'), (4, 'Bartosz', 'Gwizd', 'UKSW', 'gestalt', 'psychoterapia'), (5, 'Joanna', 'Seledyn', 'UG', 'gestalt', 'diagnoza, psychoterapia'), (6, 'Władysława', 'Kret', 'KUL', 'CBT', 'psychoterapia'), (7, 'Julia', 'Nowak', 'UG', 'psychodynamiczny', 'diagnoza, psychoterapia'), (8, 'Eugenia', 'Januszewska', 'UG', 'psychodynamiczny', 'psychoterapia'), (9, 'Kamil', 'Bober', 'KUL', 'CBT', 'diagnoza, psychoterapia');
+INSERT INTO sesje (sesja_ID, nr_gabinet, notatka, typ_sesji, `data`, godzina,czas_trwania) VALUES (1, 4, 'pierwsze spotkanie grupy terapeutycznej', 'grupowa', '2019-05-09', '17:00:00', '00:01:00'), (2, 4, 'drugie spotkanie grupy terapeutycznej', 'grupowa', '2019-05-18', '17:00:00', '00:03:00'), (3, 1, 'pierwsze spotkanie, pacjent niechętnie opowiada, rozpoczecie procesu diagnostycznego', 'indywidualna', '2022-03-04', '15:00:00','00:01:00'), (4, 2, 'para opowiada o swoich problemach', 'par', '2021-05-09', '15:00:00','00:02:00'), (5,3,'kobieta przyznaje sie do zdrady','par','2021-06-15','18:00:00','00:02:00'), (6,1,'rozmowa o uzależnieniu od alkoholu','indywidualna','2022-03-20','15:00:00','00:01:00'), (7,1,'temat przemocowej rodziny, traumy dzieciństwa','indywidualna','2021-08-17','16:00:00','00:01:00'), (8,5,'pierwsze spotkanie z rodzina','rodzinna','2020-04-01','15:00:00','00:03:00'), (9,4,'drugie spotkanie z rodzina, rozmowa o problemach komunikacyjnych','rodzinna','2020-04-12','15:00:00','00:03:00'), (10,5,'kolejne spotkanie z rodziną, terapeuta przeprowadza psychoedukacje','rodzinna','2020-04-22','15:00:00','00:03:00');
+INSERT INTO diagnoza (pacjent_ID,psycholog_ID,`data`,DSM,ACL,MMPI,NEOPIR,diagnoza_ID) VALUES (1,9,'2019-05-07','schizofrenia',7,'456',7,1), (5,7,'2018-04-02','depresja',7,'345',8,2), (6,8,'2020-07-22','zaburzenia osobowości',9,'890',4,3), (7,2,'2020-07-16','OCD',8,'345',7,4), (8,6,'2021-01-26','depresja',9,'789',3,5), (9,6,'2021-08-17','zaburzenia odżywiania',4,'123',7,6), (2,5,'2019-03-30','zaburzenia odżywiania',8,'555',8,7);
+INSERT INTO prowadzacy (sesja_ID, psycholog_ID) VALUES(1,1), (2,2), (3,4), (7,3), (8,5), (8,7), (9,5), (9,7), (10,5), (10,7);
+INSERT INTO uczestnicy (pacjent_ID, sesja_ID, naleznosc,czy_oplacona) VALUES (1,1,150.0,0), (1,10,120.0,0), (2,1,240.0,0), (2,7,150.0,1), (3,2,100.0,1), (4,3,120.0,0), (5,4,240.0,0), (6,4,120.0,0), (6,7,140.0,1), (7,5,240.0,1);
+INSERT INTO uczestnicy (pacjent_ID, sesja_ID, naleznosc,czy_oplacona) VALUES (7,8,240.0,1), (8,6,120.0,0), (9,1,150.0,1), (9,5,140.0,1), (15,9,140.0,0);
+#triggery
+CREATE TABLE log (czas timestamp DEFAULT CURRENT_TIMESTAMP, user varchar(20) NOT NULL, opis text NOT NULL);
+
+DELIMITER $$
+CREATE TRIGGER gabinet_psychologiczny.log_usuwania
+AFTER DELETE
+ON pacjenci FOR EACH ROW
+BEGIN
+	INSERT INTO log(user, opis) VALUES (CURRENT_USER(), 
+	CONCAT('usuniecie pacjenta: ', OLD.imie, ' ', OLD.nazwisko, ' ', OLD.pacjent_ID, ' ', OLD.pesel));
+END $$
+DELIMITER ;
+
+DELIMITER $$
+CREATE TRIGGER gabinet_psychologiczny.walidacja
+BEFORE INSERT
+ON pacjenci FOR EACH ROW
+BEGIN
+	IF LENGTH(NEW.imie)<3 THEN
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Imie za krotkie';
+	END IF;
+	IF LENGTH(NEW.nazwisko)<2 THEN
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Nazwisko za krotkie';
+	END IF; 
+END $$
+DELIMITER ;
+
+#operacje WHERE I JOINY
+#połaczenie pacjenta z diagnoza i imieniem i nazwiskiem diagnozującego go psychologa by INNER JOIN
+SELECT pacjenci.imie, pacjenci.nazwisko, DSM, psychologowie.psycholog_ID, psychologowie.imie, psychologowie.nazwisko FROM pacjenci INNER JOIN diagnoza ON pacjenci.pacjent_ID=diagnoza.pacjent_ID INNER JOIN psychologowie ON diagnoza.psycholog_ID=psychologowie.psycholog_ID;
+#w jakich sesjach uczestniczył dany pacjent+notatki by NATURAL JOIN
+SELECT pacjenci.imie, pacjenci.nazwisko, sesje.typ_sesji, sesje.notatka FROM pacjenci NATURAL JOIN uczestnicy NATURAL JOIN sesje;
+#diagnoza pacjenta i w jakich sesjach uczestniczył by LEFT OUTER JOIN
+SELECT imie, nazwisko, DSM, ACL, MMPI, NEOPIR , typ_sesji FROM diagnoza LEFT OUTER JOIN pacjenci ON  pacjenci.pacjent_ID=diagnoza.pacjent_ID LEFT OUTER JOIN uczestnicy ON pacjenci.pacjent_ID=uczestnicy.pacjent_ID LEFT OUTER JOIN sesje ON uczestnicy.sesja_ID=sesje.sesja_ID;
+#polaczenie pacjenta z informacjami o uczestnictwie w sesjach by RIGHT OUTER JOIN
+SELECT imie, nazwisko, notatka, typ_sesji, data FROM pacjenci RIGHT OUTER JOIN uczestnicy ON pacjenci.pacjent_ID=uczestnicy.pacjent_ID RIGHT OUTER JOIN sesje ON uczestnicy.sesja_ID=sesje.sesja_ID;
+#jakie sesje prowadził dany psycholog by WHERE
+SELECT imie, nazwisko, nurt_terapeutyczny, typ_sesji FROM psychologowie o, prowadzacy p, sesje s WHERE o.psycholog_ID=p.psycholog_ID AND s.sesja_ID=p.sesja_ID;
+#reszta operacji GROUP BY etc.
+
+#ile każdy z pacjentów zaplacil za terapie SUM
+
+SELECT imie, nazwisko, SUM(naleznosc) FROM pacjenci JOIN uczestnicy ON pacjenci.pacjent_ID=uczestnicy.pacjent_ID GROUP BY pacjenci.pacjent_ID;
+
+#wyswietlic sesje z okresu BETWEEN
+
+SELECT * FROM sesje WHERE data BETWEEN '2015-01-01' and '2020-12-31';
+
+#jakie rodzaje sesji się odbywają w ośrodku GROUP BY
+
+SELECT typ_sesji FROM sesje GROUP BY typ_sesji;
+
+#ile pracuje psychologów w każdym z nurtów COUNT
+
+SELECT nurt_terapeutyczny, COUNT(nurt_terapeutyczny) FROM psychologowie GROUP BY nurt_terapeutyczny;
+
+#wyswietlic psychologów którzy sa uprawnieni do diagnozy lub nurt CBT
+
+SELECT * FROM psychologowie WHERE kompetencje LIKE '%diagnoza%' OR nurt_terapeutyczny LIKE 'CBT';
